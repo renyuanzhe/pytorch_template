@@ -1,0 +1,70 @@
+DATA:
+  #data_path: ./data
+  data_path: ../USST-master/data
+  dataset: H2O/Ego3DTraj
+  transform:
+    input_size: [64, 64]
+    means: [0.5, 0.5, 0.5]
+    stds: [0.5, 0.5, 0.5]
+  max_frames: 40
+  load_all: True
+
+MODEL:
+  arch: TransformerSSM
+  backbone: resnet18
+  freeze_backbone: True
+  vpt: # visual prompt tuning
+    num_tokens: 5  # number of padded pixel prompt
+  ssm:
+    h_dim: 128
+    z_dim: 16
+    pred_link: True
+  feat_dim: 256
+  loc_dim: 256
+  modalities: ['rgb', 'loc']  # input modalities
+  target: 3d  # 2D or 3D target #预测输出的是2d还是3d
+  sup_obs: True  # supervise observed frames
+  centralize: True
+  use_global: True
+  aleatoric_uncertainty: #如果存在,则使用aleatoric不确定性
+    #'spacetime': 3, 'hybrid': 2, 'temporal': 1 。如果target为2d,则只能使用hybrid(相当于三维中的spacetime)或者temporal
+    type: hybrid
+    act_out: softplus
+  pred_velocity: True
+
+TRAIN:
+  batch_size: 32  #真正的batch_size为batch_size * num_ratios
+  num_ratios: 1
+  ratios: [0.6] #默认为[0.6]，可以设置多个如[0.6, 0.8]
+  loss:
+    type: CoordLoss
+    function: Huber
+    delta: 0.00001
+    scale: 1000
+    robust_weighing: True
+    tau: 0.1
+    velo_coeff: 10.0
+    velo_warp: 1.0
+  base_lr: 0.0001
+  optimizer: Adam
+  weight_decay: 0
+  scheduler:
+    type: cosine   #cosine,step
+    warmup_epoch: 10
+    lr_decay: 0.5
+    lr_decay_epoch: [] #一个列表，A list of epochs at which the learning rate should be decayed，这些 epoch 的检查点不会被删除
+    num_restarts: 0
+    min_lr_factor: 0.001
+  epoch: 350
+  eval_interval: 5
+  snapshot_interval: 50 #每隔多少个epoch保存一次模型
+  snapshot_prefix: usst_res18_final_
+
+TEST:
+  batch_size: 32
+  ratios: [0.6] # 可以设置多个如[0.6, 0.8]
+  test_epoch: null  # the last epoch  #在哪个epoch的权重上测试，默认为最后一个
+  # eval_space: norm2d  # [2d, norm2d, 3d]
+
+seed: 0
+output_dir: Y:/output
